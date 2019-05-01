@@ -566,6 +566,8 @@ namespace PCMServiceNS {
             // Default values for configuration
             int sampleRate = 1000;
             CollectionFlags collectionFlags = CollectionFlags::CORE | CollectionFlags::SOCKET | CollectionFlags::QPI;
+            TCHAR driverPath[1024] = L"c:\\windows\\system32\\msr.sys";
+            TCHAR driverName[1024] = L"PCM Test MSR";
 
             // Read configuration values from registry
             HKEY hkey;
@@ -585,22 +587,35 @@ namespace PCMServiceNS {
                     collectionFlags = static_cast<CollectionFlags>((DWORD)collectionFlagsRead);
                 }
 
+                TCHAR driverPathRead[sizeof(driverPath)];
+                DWORD lenDriverPathRead = sizeof(driverPathRead);
+                if (ERROR_SUCCESS == RegQueryValueEx(hkey, L"driverPath", NULL, NULL, reinterpret_cast<LPBYTE>(&driverPathRead), &lenDriverPathRead)) {
+                    wcscpy_s(driverPath, driverPathRead);
+                }
+
+                TCHAR driverNameRead[sizeof(driverName)];
+                DWORD lenDriverNameRead = sizeof(driverNameRead);
+                if (ERROR_SUCCESS == RegQueryValueEx(hkey, L"driverName", NULL, NULL, reinterpret_cast<LPBYTE>(&driverNameRead), &lenDriverNameRead)) {
+                    wcscpy_s(driverName, driverNameRead);
+                }
+
                 RegCloseKey(hkey);
             }
 
             this->RequestAdditionalTime(4000);
-            // We should open the driver here
-            TCHAR driverPath[] = L"c:\\windows\\system32\\msr.sys";
 
+            // We should open the driver here
             EventLog->WriteEntry(Globals::ServiceName, "Trying to start the driver...", EventLogEntryType::Information);
-            drv_ = new Driver;
+            drv_ = new Driver(driverName);
             try
             {
                 drv_->start(driverPath);
             }
             catch (std::runtime_error* e)
             {
-                String^ s = gcnew String(L"Cannot open the driver msr.sys.\nYou must have a signed msr.sys driver in c:\\windows\\system32\\ and have administrator rights to run this program.\n\n");
+                std::wstring convDriverName(driverPath);
+                std::wstring driverPath = L"Cannot open the driver " + convDriverName + L".\nYou must have a signed driver at the specified location and have administrator rights to run this program.\n\n";
+                String^ s = gcnew String(driverPath.c_str());
                 String^ es = gcnew String(e->what());
                 
                 throw gcnew Exception(s + es);

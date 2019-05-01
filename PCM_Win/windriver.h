@@ -39,6 +39,14 @@ class Driver
     SERVICE_STATUS ss;
 
 public:
+    Driver() : Driver(L"PCM Test MSR")
+    {
+    }
+
+    Driver(LPCWSTR driverName) : driverName_(driverName)
+    {
+    }
+
     /*! \brief Installs and loads the driver
 
         Installs the driver if not installed and then loads it.
@@ -51,19 +59,21 @@ public:
         hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
         if (hSCManager)
         {
-            hService = CreateService(hSCManager, DriverName, L"PCM Test MSR Driver", SERVICE_START | DELETE | SERVICE_STOP,
+            hService = CreateService(hSCManager, driverName_, L"PCM Test MSR Driver", SERVICE_START | DELETE | SERVICE_STOP,
                                      SERVICE_KERNEL_DRIVER, SERVICE_DEMAND_START, SERVICE_ERROR_IGNORE, driverPath, NULL, NULL, NULL, NULL, NULL);
 
             if (!hService)
             {
-                hService = OpenService(hSCManager, DriverName, SERVICE_START | DELETE | SERVICE_STOP);
+                hService = OpenService(hSCManager, driverName_, SERVICE_START | DELETE | SERVICE_STOP);
             }
 
             if (hService)
             {
                 if (0 != StartService(hService, 0, NULL))
                 {
-                    restrictDriverAccess(L"\\\\.\\PCM Test MSR");
+                    std::wstring convDriverName(driverName_);
+                    std::wstring driverPath = L"\\\\.\\" + convDriverName;
+                    restrictDriverAccess(driverPath.c_str());
                     return true;
                 }
                 DWORD err = GetLastError();
@@ -119,7 +129,7 @@ public:
         hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
         if (hSCManager)
         {
-            hService = OpenService(hSCManager, DriverName, SERVICE_START | DELETE | SERVICE_STOP);
+            hService = OpenService(hSCManager, driverName_, SERVICE_START | DELETE | SERVICE_STOP);
             if (hService)
             {
                 ControlService(hService, SERVICE_CONTROL_STOP, &ss);
@@ -146,7 +156,7 @@ public:
         hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
         if (hSCManager)
         {
-            hService = OpenService(hSCManager, DriverName, SERVICE_START | DELETE | SERVICE_STOP);
+            hService = OpenService(hSCManager, driverName_, SERVICE_START | DELETE | SERVICE_STOP);
             if (hService)
             {
                 ControlService(hService, SERVICE_CONTROL_STOP, &ss);
@@ -166,7 +176,7 @@ public:
     }
 
 private:
-    const LPCWSTR DriverName = L"PCM Test MSR";
+    LPCWSTR driverName_;
 };
 
 #endif
