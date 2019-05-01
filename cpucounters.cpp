@@ -30,7 +30,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include "PCM-Lib_Win\pcm-lib.h"
 #else
 #include "cpucounters.h"
-#endif
+#endif // PCM_EXPORTS
 #include "msr.h"
 #include "pci.h"
 #include "types.h"
@@ -52,8 +52,10 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include <windows.h>
 #include <comdef.h>
 #include <tchar.h>
-#include "winring0/OlsApiInit.h"
 #include "PCM_Win/windriver.h"
+#ifndef NO_WINRING
+#include "winring0/OlsApiInit.h"
+#endif // NO_WINRING
 #else
 #include <pthread.h>
 #if defined(__FreeBSD__) || (defined(__DragonFly__) && __DragonFly_version >= 400707)
@@ -64,7 +66,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #ifdef __linux__
 #include <sys/mman.h>
 #endif
-#endif
+#endif // _MSC_VER
 
 #include <string.h>
 #include <limits>
@@ -86,7 +88,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 // convertUnknownToInt is used in the safe sysctl call to convert an unkown size to an int
 int convertUnknownToInt(size_t size, char* value);
 
-#endif
+#endif // __APPLE__
 
 #undef PCM_UNCORE_PMON_BOX_CHECK_STATUS // debug only
 #undef PCM_DEBUG_TOPOLOGY // debug of topology enumeration routine
@@ -102,6 +104,7 @@ int convertUnknownToInt(size_t size, char* value);
 
 #ifdef _MSC_VER
 
+#ifndef NO_WINRING
 HMODULE hOpenLibSys = NULL;
 
 bool PCM::initWinRing0Lib()
@@ -122,6 +125,7 @@ bool PCM::initWinRing0Lib()
 
     return true;
 }
+#endif // NO_WINRING
 
 class InstanceLock
 {
