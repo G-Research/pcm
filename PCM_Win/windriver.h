@@ -176,7 +176,7 @@ public:
     }
 
 private:
-    LPCWSTR driverName_;
+    const LPCWSTR driverName_;
 };
 
 #endif
