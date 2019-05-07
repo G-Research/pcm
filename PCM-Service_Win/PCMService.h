@@ -53,7 +53,8 @@ namespace PCMServiceNS {
     ref class MeasureThread
     {
     public:
-        MeasureThread(System::Diagnostics::EventLog^ log, int sampleRate, CollectionFlags collectionFlags) : log_(log), sampleRate_(sampleRate), collectionFlags_(collectionFlags)
+        MeasureThread(System::Diagnostics::EventLog^ log, int sampleRate, CollectionFlags collectionFlags) : log_(log), sampleRate_(sampleRate),
+            collectCore_(0 != (DWORD)(collectionFlags & CollectionFlags::CORE)), collectSocket_(0 != (DWORD)(collectionFlags & CollectionFlags::SOCKET)), collectQPI_(0 != (DWORD)(collectionFlags & CollectionFlags::QPI))
         {
             // Get a Monitor instance which sets up the PMU, it also figures out the number of cores and sockets which we need later on to create the performance counters
             m_ = PCM::getInstance();
@@ -86,11 +87,6 @@ namespace PCMServiceNS {
             }
             log_->WriteEntry(Globals::ServiceName, "Old categories deleted.");
 
-            // Determine collection categories
-            bool collectCore = 0 != (DWORD)(collectionFlags & CollectionFlags::CORE);
-            bool collectSocket = 0 != (DWORD)(collectionFlags & CollectionFlags::SOCKET);
-            bool collectQPI = 0 != (DWORD)(collectionFlags & CollectionFlags::QPI);
-
             // First create the collection, then add counters to it so we add them all at once
             CounterCreationDataCollection^ counterCollection = gcnew CounterCreationDataCollection;
 
@@ -100,7 +96,7 @@ namespace PCMServiceNS {
             // counterCollection->Add( counter );
             CounterCreationData^ counter;
 
-            if (collectCore)
+            if (collectCore_)
             {
                 counter = gcnew CounterCreationData(MetricCoreClocktick, "Displays the number of clockticks elapsed since previous measurement.", PerformanceCounterType::CounterDelta64);
                 counterCollection->Add( counter );
@@ -131,7 +127,7 @@ namespace PCMServiceNS {
                 PerformanceCounterCategory::Create(CountersCore, "Processor Counter Monitor", PerformanceCounterCategoryType::MultiInstance, counterCollection);
             }
 
-            if (collectSocket)
+            if (collectSocket_)
             {
                 counterCollection->Clear();
                 counter = gcnew CounterCreationData(MetricSocketBandRead, "Displays the memory read bandwidth in bytes/s of this socket.", PerformanceCounterType::NumberOfItems64);
@@ -153,7 +149,7 @@ namespace PCMServiceNS {
                 PerformanceCounterCategory::Create(CountersSocket, "Processor Counter Monitor", PerformanceCounterCategoryType::MultiInstance, counterCollection);
             }
 
-            if (collectQPI)
+            if (collectQPI_)
             {
                 counterCollection->Clear();
                 counter = gcnew CounterCreationData(MetricQpiBand, "Displays the incoming bandwidth in bytes/s of this QPI link.", PerformanceCounterType::CounterDelta64);
@@ -168,7 +164,7 @@ namespace PCMServiceNS {
 
             // Create #processors instances of the core specific performance counters
             String^ s; // Used for creating the instance name and the string to search for in the hashtable
-            if (collectCore)
+            if (collectCore_)
             {
                 for ( unsigned int i = 0; i < m_->getNumCores(); ++i )
                 {
@@ -193,7 +189,7 @@ namespace PCMServiceNS {
             for ( unsigned int i=0; i<m_->getNumSockets(); ++i )
             {
                 s = "Socket"+UInt32(i).ToString();
-                if (collectCore)
+                if (collectCore_)
                 {
                     ticksHash_.Add(s, gcnew PerformanceCounter(CountersCore, MetricCoreClocktick, s, false));
                     instRetHash_.Add(s, gcnew PerformanceCounter(CountersCore, MetricCoreRetired, s, false));
@@ -210,7 +206,7 @@ namespace PCMServiceNS {
                     CoreC7StateResidencyHash_.Add(s, gcnew PerformanceCounter(CountersCore, MetricCoreResC7, s, false));
                 }
 
-                if (collectSocket)
+                if (collectSocket_)
                 {
                     mrbHash_.Add(s, gcnew PerformanceCounter(CountersSocket, MetricSocketBandRead, s, false));
                     mwbHash_.Add(s, gcnew PerformanceCounter(CountersSocket, MetricSocketBandWrite, s, false));
@@ -222,7 +218,7 @@ namespace PCMServiceNS {
                     PackageC7StateResidencyHash_.Add(s, gcnew PerformanceCounter(CountersSocket, MetricSocketResC7, s, false));
                 }
 
-                if (collectQPI)
+                if (collectQPI_)
                 {
                     qpiHash_.Add(s, gcnew PerformanceCounter(CountersQpi, MetricQpiBand, s, false)); // Socket aggregate
                     String^ t;
@@ -236,7 +232,7 @@ namespace PCMServiceNS {
 
             // Create #system instances of the system specific performance counters, just kidding, there is only one system so 1 instance
             s = "Total_";
-            if (collectCore)
+            if (collectCore_)
             {
                 ticksHash_.Add(s, gcnew PerformanceCounter(CountersCore, MetricCoreClocktick, s, false));
                 instRetHash_.Add(s, gcnew PerformanceCounter(CountersCore, MetricCoreRetired, s, false));
@@ -253,7 +249,7 @@ namespace PCMServiceNS {
                 CoreC7StateResidencyHash_.Add(s, gcnew PerformanceCounter(CountersCore, MetricCoreResC7, s, false));
             }
 
-            if (collectSocket)
+            if (collectSocket_)
             {
                 mrbHash_.Add(s, gcnew PerformanceCounter(CountersSocket, MetricSocketBandRead, s, false));
                 mwbHash_.Add(s, gcnew PerformanceCounter(CountersSocket, MetricSocketBandWrite, s, false));
@@ -265,7 +261,7 @@ namespace PCMServiceNS {
                 PackageC7StateResidencyHash_.Add(s, gcnew PerformanceCounter(CountersSocket, MetricSocketResC7, s, false));
             }
 
-            if (collectQPI)
+            if (collectQPI_)
             {
                 qpiHash_.Add(s, gcnew PerformanceCounter(CountersQpi, MetricQpiBand, s, false));
             }
@@ -285,12 +281,6 @@ namespace PCMServiceNS {
             SocketCounterState* oldSocketStates = new SocketCounterState[numSockets];
             CoreCounterState*   oldCoreStates   = new CoreCounterState[numCores];
 
-            // Determine collection categories
-            // FIXME: this is duplicated here from the constructor
-            bool collectCore = 0 != (DWORD)(collectionFlags_ & CollectionFlags::CORE);
-            bool collectSocket = 0 != (DWORD)(collectionFlags_ & CollectionFlags::SOCKET);
-            bool collectQPI = 0 != (DWORD)(collectionFlags_ & CollectionFlags::QPI);
-
             try {
                 while (true)
                 {
@@ -300,7 +290,7 @@ namespace PCMServiceNS {
                     SystemCounterState systemState = getSystemCounterState();
                     // Set system performance counters
                     String^ s = "Total_";
-                    if (collectCore)
+                    if (collectCore_)
                     {
                         __int64 totalTicks    = getCycles(systemState);
                         __int64 totalRefTicks = m_->getNominalFrequency() * numCores;
@@ -322,7 +312,7 @@ namespace PCMServiceNS {
                         //log_->WriteEntry(Globals::ServiceName, "Ref: " + UInt64(totalRefTicks).ToString());
                     }
 
-                    if (collectSocket)
+                    if (collectSocket_)
                     {
                         ((PerformanceCounter^)mrbHash_[s])->RawValue = getBytesReadFromMC(oldSystemState, systemState);
                         ((PerformanceCounter^)mwbHash_[s])->RawValue = getBytesWrittenToMC(oldSystemState, systemState);
@@ -334,7 +324,7 @@ namespace PCMServiceNS {
                         ((PerformanceCounter^)PackageC7StateResidencyHash_[s])->RawValue = __int64(100.*getPackageCStateResidency(7, oldSystemState, systemState));
                     }
 
-                    if (collectQPI)
+                    if (collectQPI_)
                     {
                         ((PerformanceCounter^)qpiHash_[s])->RawValue = getAllIncomingQPILinkBytes(systemState);
                     }
@@ -347,7 +337,7 @@ namespace PCMServiceNS {
                     {
                         s = "Socket"+UInt32(i).ToString();
                         SocketCounterState socketState = getSocketCounterState(i);
-                        if (collectCore)
+                        if (collectCore_)
                         {
                             __int64 socketTicks    = getCycles(socketState);
                             __int64 socketRefTicks = m_->getNominalFrequency()* numCores / numSockets;
@@ -367,7 +357,7 @@ namespace PCMServiceNS {
                             ((PerformanceCounter^)CoreC7StateResidencyHash_[s])->RawValue = __int64(100.*getCoreCStateResidency(7, oldSocketStates[i], socketState));
                         }
 
-                        if (collectSocket)
+                        if (collectSocket_)
                         {
                             ((PerformanceCounter^)mrbHash_[s])->RawValue = getBytesReadFromMC(oldSocketStates[i], socketState);
                             ((PerformanceCounter^)mwbHash_[s])->RawValue = getBytesWrittenToMC(oldSocketStates[i], socketState);
@@ -379,7 +369,7 @@ namespace PCMServiceNS {
                             ((PerformanceCounter^)PackageC7StateResidencyHash_[s])->RawValue = __int64(100.*getPackageCStateResidency(7,oldSocketStates[i], socketState));
                         }
 
-                        if (collectQPI)
+                        if (collectQPI_)
                         {
                             ((PerformanceCounter^)qpiHash_[s])->RawValue = getSocketIncomingQPILinkBytes(i, systemState);
                             String^ t;
@@ -394,7 +384,7 @@ namespace PCMServiceNS {
                     }
 
                     // Set core performance counters
-                    if (collectCore)
+                    if (collectCore_)
                     {
                         for ( unsigned int i = 0; i < numCores; ++i )
                         {
@@ -501,7 +491,10 @@ namespace PCMServiceNS {
 
         // Configuration values
         const int sampleRate_;
-        const CollectionFlags collectionFlags_;
+
+        const bool collectCore_;
+        const bool collectSocket_;
+        const bool collectQPI_;
     };
 
     /// <summary>
