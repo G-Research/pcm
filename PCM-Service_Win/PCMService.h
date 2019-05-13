@@ -484,17 +484,15 @@ namespace PCMServiceNS {
         {
             this->RequestAdditionalTime(4000);
             // We should open the driver here
-            TCHAR driverPath[] = L"c:\\windows\\system32\\msr.sys";
-
             EventLog->WriteEntry(Globals::ServiceName, "Trying to start the driver...", EventLogEntryType::Information);
             drv_ = new Driver;
             try
             {
-                drv_->start(driverPath);
+                drv_->start();
             }
             catch (std::runtime_error* e)
             {
-                String^ s = gcnew String(L"Cannot open the driver msr.sys.\nYou must have a signed msr.sys driver in c:\\windows\\system32\\ and have administrator rights to run this program.\n\n");
+                String^ s = gcnew String(L"Cannot open the driver.\nYou must have a signed driver at the provided location and have administrator rights to run this program.\n\n");
                 String^ es = gcnew String(e->what());
                 
                 throw gcnew Exception(s + es);

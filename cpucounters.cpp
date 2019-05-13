@@ -1723,9 +1723,9 @@ PCM::PCM() :
     GetCurrentDirectory(1024, driverPath);
     wcscat_s(driverPath, 1040, L"\\msr.sys");
     // WARNING: This driver code (msr.sys) is only for testing purposes, not for production use
-    Driver drv;
+    Driver drv = Driver(driverPath);
     // drv.stop();     // restart driver (usually not needed)
-    if (!drv.start(driverPath))
+    if (!drv.start())
     {
         std::cerr << "Cannot access CPU counters" << std::endl;
         std::cerr << "You must have signed msr.sys driver in your current directory and have administrator rights to run this program" << std::endl;

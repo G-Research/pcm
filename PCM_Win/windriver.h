@@ -39,6 +39,45 @@ class Driver
     SERVICE_STATUS ss;
 
 public:
+	Driver() : Driver(L"c:\\windows\\system32\\msr.sys")
+	{
+	}
+
+	Driver(TCHAR _driverPath[1024]) : Driver(_driverPath, L"PCM Test MSR")
+	{
+	}
+
+	Driver(TCHAR _driverPath[1024], TCHAR _driverName[1024])
+	{
+		TCHAR driverPath[sizeof(_driverPath)];
+		wcscpy_s(driverPath, _driverPath);
+		TCHAR driverName[sizeof(_driverName)];
+		wcscpy_s(driverName, _driverName);
+
+		HKEY hkey;
+		if (ERROR_SUCCESS == RegOpenKeyEx(HKEY_LOCAL_MACHINE, L"SOFTWARE\\pcm", NULL, KEY_READ, &hkey))
+		{
+			TCHAR driverPathRead[sizeof(driverPath)];
+			DWORD lenDriverPathRead = sizeof(driverPathRead);
+			if (ERROR_SUCCESS == RegQueryValueEx(hkey, L"DriverPath", NULL, NULL, reinterpret_cast<LPBYTE>(&driverPathRead), &lenDriverPathRead))
+			{
+				wcscpy_s(driverPath, driverPathRead);
+			}
+
+			TCHAR driverNameRead[sizeof(driverName)];
+			DWORD lenDriverNameRead = sizeof(driverNameRead);
+			if (ERROR_SUCCESS == RegQueryValueEx(hkey, L"DriverName", NULL, NULL, reinterpret_cast<LPBYTE>(&driverNameRead), &lenDriverNameRead))
+			{
+				wcscpy_s(driverName, driverNameRead);
+			}
+
+			RegCloseKey(hkey);
+		}
+
+		driverPath_ = driverPath;
+		driverName_ = driverName;
+	}
+
     /*! \brief Installs and loads the driver
 
         Installs the driver if not installed and then loads it.
@@ -46,24 +85,26 @@ public:
         \param driverPath full path to the driver
         \return true iff driver start up was successful
     */
-    bool start(LPCWSTR driverPath)
+    bool start()
     {
         hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
         if (hSCManager)
         {
-            hService = CreateService(hSCManager, DriverName, L"PCM Test MSR Driver", SERVICE_START | DELETE | SERVICE_STOP,
-                                     SERVICE_KERNEL_DRIVER, SERVICE_DEMAND_START, SERVICE_ERROR_IGNORE, driverPath, NULL, NULL, NULL, NULL, NULL);
+            hService = CreateService(hSCManager, driverName_, L"PCM Test MSR Driver", SERVICE_START | DELETE | SERVICE_STOP,
+                                     SERVICE_KERNEL_DRIVER, SERVICE_DEMAND_START, SERVICE_ERROR_IGNORE, driverPath_, NULL, NULL, NULL, NULL, NULL);
 
             if (!hService)
             {
-                hService = OpenService(hSCManager, DriverName, SERVICE_START | DELETE | SERVICE_STOP);
+                hService = OpenService(hSCManager, driverName_, SERVICE_START | DELETE | SERVICE_STOP);
             }
 
             if (hService)
             {
                 if (0 != StartService(hService, 0, NULL))
                 {
-                    restrictDriverAccess(L"\\\\.\\PCM Test MSR");
+                    std::wstring convDriverName(driverName_);
+                    std::wstring driverPath = L"\\\\.\\" + convDriverName;
+                    restrictDriverAccess(driverPath.c_str());
                     return true;
                 }
                 DWORD err = GetLastError();
@@ -119,7 +160,7 @@ public:
         hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
         if (hSCManager)
         {
-            hService = OpenService(hSCManager, DriverName, SERVICE_START | DELETE | SERVICE_STOP);
+            hService = OpenService(hSCManager, driverName_, SERVICE_START | DELETE | SERVICE_STOP);
             if (hService)
             {
                 ControlService(hService, SERVICE_CONTROL_STOP, &ss);
@@ -146,7 +187,7 @@ public:
         hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
         if (hSCManager)
         {
-            hService = OpenService(hSCManager, DriverName, SERVICE_START | DELETE | SERVICE_STOP);
+            hService = OpenService(hSCManager, driverName_, SERVICE_START | DELETE | SERVICE_STOP);
             if (hService)
             {
                 ControlService(hService, SERVICE_CONTROL_STOP, &ss);
@@ -166,7 +207,8 @@ public:
     }
 
 private:
-    const LPCWSTR DriverName = L"PCM Test MSR";
+    LPCWSTR driverName_;
+    LPCWSTR driverPath_;
 };
 
 #endif

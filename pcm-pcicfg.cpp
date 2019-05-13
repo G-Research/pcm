@@ -101,9 +101,9 @@ int main(int argc, char * argv[])
     wcscat_s(driverPath, 1032, L"\\msr.sys");
 
     // WARNING: This driver code (msr.sys) is only for testing purposes, not for production use
-    Driver drv;
+    Driver drv = Driver(driverPath);
     // drv.stop();     // restart driver (usually not needed)
-    if (!drv.start(driverPath))
+    if (!drv.start())
     {
         std::cerr << "Can not load MSR driver." << std::endl;
         std::cerr << "You must have signed msr.sys driver in your current directory and have administrator rights to run this program" << std::endl;

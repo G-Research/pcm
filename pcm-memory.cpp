@@ -911,8 +911,8 @@ int main(int argc, char * argv[])
         else
         if (strncmp(*argv, "--installDriver", 15) == 0)
         {
-            Driver tmpDrvObject;
-            if (!tmpDrvObject.start(driverPath))
+            Driver tmpDrvObject = Driver(driverPath);
+            if (!tmpDrvObject.start())
             {
                 cerr << "Can not access CPU counters" << endl;
                 cerr << "You must have signed msr.sys driver in your current directory and have administrator rights to run this program" << endl;
