@@ -1719,11 +1719,8 @@ PCM::PCM() :
     needToRestoreNMIWatchdog(false)
 {
 #ifdef _MSC_VER
-    TCHAR driverPath[1040]; // length for current directory + "\\msr.sys"
-    GetCurrentDirectory(1024, driverPath);
-    wcscat_s(driverPath, 1040, L"\\msr.sys");
     // WARNING: This driver code (msr.sys) is only for testing purposes, not for production use
-    Driver drv = Driver(driverPath);
+    Driver drv = Driver(Driver::msrLocalPath());
     // drv.stop();     // restart driver (usually not needed)
     if (!drv.start())
     {

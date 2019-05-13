@@ -775,12 +775,6 @@ int main(int argc, char * argv[])
     std::cerr.rdbuf(&nullStream2);
 #endif
 
-#ifdef _MSC_VER
-    TCHAR driverPath[1040]; // length for current directory + "\\msr.sys"
-    GetCurrentDirectory(1024, driverPath);
-    wcscat_s(driverPath, 1040, L"\\msr.sys");
-#endif
-
     cerr << endl;
     cerr << " Processor Counter Monitor: Memory Bandwidth Monitoring Utility " << PCM_VERSION << endl;
     cerr << endl;
@@ -911,7 +905,7 @@ int main(int argc, char * argv[])
         else
         if (strncmp(*argv, "--installDriver", 15) == 0)
         {
-            Driver tmpDrvObject = Driver(driverPath);
+            Driver tmpDrvObject = Driver(Driver::msrLocalPath());
             if (!tmpDrvObject.start())
             {
                 cerr << "Can not access CPU counters" << endl;

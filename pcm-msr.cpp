@@ -92,12 +92,8 @@ int main(int argc, char * argv[])
     // Increase the priority a bit to improve context switching delays on Windows
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
 
-    TCHAR driverPath[1032];
-    GetCurrentDirectory(1024, driverPath);
-    wcscat_s(driverPath, 1032, L"\\msr.sys");
-
     // WARNING: This driver code (msr.sys) is only for testing purposes, not for production use
-    Driver drv = Driver(driverPath);
+    Driver drv = Driver(Driver::msrLocalPath());
     // drv.stop();     // restart driver (usually not needed)
     if (!drv.start())
     {

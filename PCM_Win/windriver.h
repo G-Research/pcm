@@ -39,6 +39,16 @@ class Driver
     SERVICE_STATUS ss;
 
 public:
+	static TCHAR* msrLocalPath()
+	{
+		TCHAR driverPath[1024];
+		TCHAR driverName[] = L"\\msr.sys";
+		GetCurrentDirectory(sizeof(driverPath) - (sizeof(driverName) / sizeof(TCHAR)), driverPath);
+		wcscat_s(driverPath, sizeof(driverPath), driverName);
+
+		return driverPath;
+	}
+
 	Driver() : Driver(L"c:\\windows\\system32\\msr.sys")
 	{
 	}
