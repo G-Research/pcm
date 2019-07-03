@@ -15,6 +15,7 @@
 #include <IOKit/IOLib.h>
 #include <libkern/sysctl.h>
 #include "PcmMsr.h"
+#include "../../CommonMSRDriver/whitelist.h"
 
 PcmMsrDriverClassName *g_pci_driver = NULL;
 
@@ -158,7 +159,12 @@ void PcmMsrDriverClassName::handleClose(IOService* forClient, IOOptionBits opts)
 IOReturn PcmMsrDriverClassName::readMSR(pcm_msr_data_t* idatas,pcm_msr_data_t* odatas){
     // All the msr_nums should be the same, so we just use the first one to pass to all cores
     IOReturn ret = kIOReturnBadArgument;
-    if(idatas->cpu_num < num_cores)
+    if (!AllowMSRAccess(msr))
+    {
+        IOLog("Denied Access to MSR %s", idatas->msr_num);
+        ret = kIOReturnNotPermitted;
+    }
+    else if(idatas->cpu_num < num_cores)
     {        
         mp_rendezvous_no_intrs(cpuReadMSR, (void*)idatas);
         
@@ -176,7 +182,12 @@ IOReturn PcmMsrDriverClassName::readMSR(pcm_msr_data_t* idatas,pcm_msr_data_t* o
 
 IOReturn PcmMsrDriverClassName::writeMSR(pcm_msr_data_t* idata){
     IOReturn ret = kIOReturnBadArgument;
-    if(idata->cpu_num < num_cores)
+    if (!AllowMSRAccess(msr))
+    {
+        IOLog("Denied Access to MSR %s", idatas->msr_num);
+        ret = kIOReturnNotPermitted;
+    }
+    else if(idata->cpu_num < num_cores)
     {
         mp_rendezvous_no_intrs(cpuWriteMSR, (void*)idata);
         
@@ -219,6 +230,14 @@ IOReturn PcmMsrDriverClassName::decrementNumInstances(uint32_t* num_insts){
 // read
 uint32_t PcmMsrDriverClassName::read(uint32_t pci_address)
 {
+    uint32_t pciDevice = EXTRACT_PCI_DEV(pci_address);
+    uint32_t pciOffset = EXTRACT_PCI_OFF(pci_address);
+    if (!AllowPCICFGAccess(pciDevice, pciOffset))
+    {
+        IOLog("Denied Access to PCICFG Device %s at offset %s", pciDevice, pciOffset);
+        return 0;
+    }
+
     uint32_t value = 0;
 	
     __asm__("\t"
@@ -238,7 +257,14 @@ uint32_t PcmMsrDriverClassName::read(uint32_t pci_address)
 // write
 void PcmMsrDriverClassName::write(uint32_t pci_address, uint32_t value)
 {
-	
+    uint32_t pciDevice = EXTRACT_PCI_DEV(pci_address);
+    uint32_t pciOffset = EXTRACT_PCI_OFF(pci_address);
+    if (!AllowPCICFGAccess(pciDevice, pciOffset))
+    {
+        IOLog("Denied Access to PCICFG Device %s at offset %s", pciDevice, pciOffset);
+        return;
+    }
+
 	__asm__("\t"
 			"movw $0xCF8,%%dx\n\t"
 			"andb $0xFC,%%al\n\t"
